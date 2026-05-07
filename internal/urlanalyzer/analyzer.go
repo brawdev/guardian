@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 )
 
 type Result struct {
@@ -33,10 +34,15 @@ func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
 		Hostname: parsed.Hostname(),
 	}
 
-	result.Typo = CheckTyposquatting(parsed.Hostname())
-	result.Whois = CheckWhois(parsed.Hostname())
-	result.Redirects = CheckRedirects(rawURL)
-	result.Reputation = CheckReputation(rawURL, safeBrowsingKey, virusTotalKey)
+	var wg sync.WaitGroup
+	wg.Add(4)
+
+	go func() { defer wg.Done(); result.Typo = CheckTyposquatting(parsed.Hostname()) }()
+	go func() { defer wg.Done(); result.Whois = CheckWhois(parsed.Hostname()) }()
+	go func() { defer wg.Done(); result.Redirects = CheckRedirects(rawURL) }()
+	go func() { defer wg.Done(); result.Reputation = CheckReputation(rawURL, safeBrowsingKey, virusTotalKey) }()
+
+	wg.Wait()
 
 	result.RiskScore, result.Flags = calculateRisk(result)
 	result.RiskLevel = scoreToLevel(result.RiskScore)

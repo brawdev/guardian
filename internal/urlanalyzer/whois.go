@@ -16,21 +16,34 @@ type WhoisResult struct {
 
 func CheckWhois(hostname string) WhoisResult {
 	domain := extractRootDomain(hostname)
-	raw, err := whois.Whois(domain)
-	if err != nil {
-		return WhoisResult{Error: err.Error()}
-	}
 
-	created := extractCreatedDate(raw)
-	if created.IsZero() {
-		return WhoisResult{Error: "no se pudo parsear fecha de creación"}
+	type whoisResp struct {
+		raw string
+		err error
 	}
+	ch := make(chan whoisResp, 1)
+	go func() {
+		raw, err := whois.Whois(domain)
+		ch <- whoisResp{raw, err}
+	}()
 
-	age := int(time.Since(created).Hours() / 24)
-	return WhoisResult{
-		DomainAge:   age,
-		CreatedDate: created.Format("2006-01-02"),
-		IsNew:       age < 90,
+	select {
+	case <-time.After(6 * time.Second):
+		return WhoisResult{Error: "timeout en consulta WHOIS"}
+	case res := <-ch:
+		if res.err != nil {
+			return WhoisResult{Error: res.err.Error()}
+		}
+		created := extractCreatedDate(res.raw)
+		if created.IsZero() {
+			return WhoisResult{Error: "no se pudo parsear fecha de creación"}
+		}
+		age := int(time.Since(created).Hours() / 24)
+		return WhoisResult{
+			DomainAge:   age,
+			CreatedDate: created.Format("2006-01-02"),
+			IsNew:       age < 90,
+		}
 	}
 }
 
