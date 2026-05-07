@@ -7,15 +7,15 @@ import (
 )
 
 type Result struct {
-	URL        string
-	Hostname   string
-	Typo       TypoResult
-	Whois      WhoisResult
-	Redirects  RedirectResult
-	Reputation ReputationResult
-	RiskScore  int    // 0-100
-	RiskLevel  string // BAJO, MEDIO, ALTO, CRITICO
-	Flags      []string
+	URL        string           `json:"url,omitempty"`
+	Hostname   string           `json:"hostname,omitempty"`
+	Typo       TypoResult       `json:"typo,omitempty"`
+	Whois      WhoisResult      `json:"whois,omitempty"`
+	Redirects  RedirectResult   `json:"redirects,omitempty"`
+	Reputation ReputationResult `json:"reputation,omitempty"`
+	RiskScore  int              `json:"risk_score,omitempty"`
+	RiskLevel  string           `json:"risk_level,omitempty"`
+	Flags      []string         `json:"flags,omitempty"`
 }
 
 func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {

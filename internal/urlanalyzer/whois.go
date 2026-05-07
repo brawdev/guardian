@@ -8,10 +8,10 @@ import (
 )
 
 type WhoisResult struct {
-	DomainAge   int // días
-	CreatedDate string
-	IsNew       bool // < 90 días
-	Error       string
+	DomainAge   int    `json:"domain_age,omitempty"`
+	CreatedDate string `json:"created_date,omitempty"`
+	IsNew       bool   `json:"is_new,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 func CheckWhois(hostname string) WhoisResult {

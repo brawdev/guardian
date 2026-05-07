@@ -7,12 +7,12 @@ import (
 )
 
 type TypoResult struct {
-	IsTyposquat    bool
-	ClosestBrand   string
-	Distance       int
-	Suspicious     string
-	ContainsBrand  bool   // el dominio contiene el nombre de marca exacto
-	MatchType      string // "levenshtein" | "homoglyph" | "contains"
+	IsTyposquat   bool   `json:"is_typosquat,omitempty"`
+	ClosestBrand  string `json:"closest_brand,omitempty"`
+	Distance      int    `json:"distance,omitempty"`
+	Suspicious    string `json:"suspicious,omitempty"`
+	ContainsBrand bool   `json:"contains_brand,omitempty"`
+	MatchType     string `json:"match_type,omitempty"`
 }
 
 // homoglyphs mapeo de caracteres visualmente similares usados en ataques

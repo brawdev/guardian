@@ -12,23 +12,23 @@ import (
 )
 
 type ReputationResult struct {
-	SafeBrowsing SafeBrowsingResult
-	VirusTotal   VirusTotalResult
+	SafeBrowsing SafeBrowsingResult `json:"safe_browsing,omitempty"`
+	VirusTotal   VirusTotalResult   `json:"virus_total,omitempty"`
 }
 
 type SafeBrowsingResult struct {
-	IsMalicious bool
-	ThreatTypes []string
-	Error       string
+	IsMalicious bool     `json:"is_malicious,omitempty"`
+	ThreatTypes []string `json:"threat_types,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
 type VirusTotalResult struct {
-	IsMalicious  bool
-	Malicious    int
-	Suspicious   int
-	TotalEngines int
-	Vendors      []string // vendors que lo marcan malicioso
-	Error        string
+	IsMalicious  bool     `json:"is_malicious,omitempty"`
+	Malicious    int      `json:"malicious,omitempty"`
+	Suspicious   int      `json:"suspicious,omitempty"`
+	TotalEngines int      `json:"total_engines,omitempty"`
+	Vendors      []string `json:"vendors,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
 
 type sbRequest struct {

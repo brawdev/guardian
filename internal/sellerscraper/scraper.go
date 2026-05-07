@@ -2,30 +2,29 @@ package sellerscraper
 
 // Result contiene el resultado del análisis de un perfil de vendedor
 type Result struct {
-	Platform    string // "mercadolibre" | "amazon" | "aliexpress"
-	SellerID    string
-	Username    string
-	ProfileURL  string
-	Profile     ProfileData
-	RiskScore   int
-	RiskLevel   string
-	Flags       []string
+	Platform   string      `json:"platform,omitempty"`
+	SellerID   string      `json:"seller_id,omitempty"`
+	Username   string      `json:"username,omitempty"`
+	ProfileURL string      `json:"profile_url,omitempty"`
+	Profile    ProfileData `json:"profile,omitempty"`
+	RiskScore  int         `json:"risk_score,omitempty"`
+	RiskLevel  string      `json:"risk_level,omitempty"`
+	Flags      []string    `json:"flags,omitempty"`
 }
 
-// ProfileData datos del perfil obtenidos de la plataforma
 type ProfileData struct {
-	RegistrationDate  string
-	AccountAgeDays    int
-	TotalTransactions int
-	CompletedSales    int
-	CanceledSales     int
-	ComplaintRate     float64 // 0.0 - 1.0
-	CancellationRate  float64 // 0.0 - 1.0
-	PositiveRating    float64 // 0.0 - 1.0
-	NegativeRating    float64 // 0.0 - 1.0
-	ReputationLevel   string  // ej: "5_green", "4_light_green"
-	Country           string
-	IsNewAccount      bool    // sin historial de ventas
+	RegistrationDate  string  `json:"registration_date,omitempty"`
+	AccountAgeDays    int     `json:"account_age_days,omitempty"`
+	TotalTransactions int     `json:"total_transactions,omitempty"`
+	CompletedSales    int     `json:"completed_sales,omitempty"`
+	CanceledSales     int     `json:"canceled_sales,omitempty"`
+	ComplaintRate     float64 `json:"complaint_rate,omitempty"`
+	CancellationRate  float64 `json:"cancellation_rate,omitempty"`
+	PositiveRating    float64 `json:"positive_rating,omitempty"`
+	NegativeRating    float64 `json:"negative_rating,omitempty"`
+	ReputationLevel   string  `json:"reputation_level,omitempty"`
+	Country           string  `json:"country,omitempty"`
+	IsNewAccount      bool    `json:"is_new_account,omitempty"`
 }
 
 // Analyze verifica el perfil de un vendedor dado su URL o username

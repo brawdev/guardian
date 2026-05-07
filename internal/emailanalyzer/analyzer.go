@@ -7,23 +7,23 @@ import (
 )
 
 type LinkAnalysis struct {
-	URL       string
-	RiskLevel string
-	RiskScore int
-	TopFlag   string
+	URL       string `json:"url,omitempty"`
+	RiskLevel string `json:"risk_level,omitempty"`
+	RiskScore int    `json:"risk_score,omitempty"`
+	TopFlag   string `json:"top_flag,omitempty"`
 }
 
 type Result struct {
-	File             string
-	Subject          string
-	From             string
-	Headers          HeaderResult
-	Body             BodyResult
-	LinkResults      []LinkAnalysis
-	RiskScore        int
-	RiskLevel        string
-	Flags            []string
-	HeadersAvailable bool
+	File             string         `json:"file,omitempty"`
+	Subject          string         `json:"subject,omitempty"`
+	From             string         `json:"from,omitempty"`
+	Headers          HeaderResult   `json:"headers,omitempty"`
+	Body             BodyResult     `json:"body,omitempty"`
+	LinkResults      []LinkAnalysis `json:"link_results,omitempty"`
+	RiskScore        int            `json:"risk_score,omitempty"`
+	RiskLevel        string         `json:"risk_level,omitempty"`
+	Flags            []string       `json:"flags,omitempty"`
+	HeadersAvailable bool           `json:"headers_available,omitempty"`
 }
 
 func Analyze(path, safeBrowsingKey, virusTotalKey string) (Result, error) {

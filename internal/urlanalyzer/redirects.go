@@ -8,13 +8,13 @@ import (
 )
 
 type RedirectResult struct {
-	Chain        []string
-	FinalURL     string
-	HopCount     int
-	CrossDomain  bool // cambia de dominio en el camino
-	TLSValid     bool
-	TLSIssuer    string
-	Error        string
+	Chain       []string `json:"chain,omitempty"`
+	FinalURL    string   `json:"final_url,omitempty"`
+	HopCount    int      `json:"hop_count,omitempty"`
+	CrossDomain bool     `json:"cross_domain,omitempty"`
+	TLSValid    bool     `json:"tls_valid,omitempty"`
+	TLSIssuer   string   `json:"tls_issuer,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
 func CheckRedirects(rawURL string) RedirectResult {

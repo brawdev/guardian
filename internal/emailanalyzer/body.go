@@ -6,14 +6,14 @@ import (
 )
 
 type BodyResult struct {
-	WhatsAppLinks       []string // wa.me links encontrados
-	BankAccounts        []string // números de cuenta / CLABE detectados
-	UrgencyPhrases      []string // frases de urgencia/amenaza
-	PersonalTrackers    []string // rastreadores personales detectados
-	ForeignPhones       []string // teléfonos de países inconsistentes
-	SuspiciousLinks     []string // links a dominios distintos del remitente
-	CreditCardRequests  []string // palabras clave de solicitud de datos de tarjeta
-	IdentityRequests    []string // palabras clave de solicitud de documentos de identidad
+	WhatsAppLinks      []string `json:"whatsapp_links,omitempty"`
+	BankAccounts       []string `json:"bank_accounts,omitempty"`
+	UrgencyPhrases     []string `json:"urgency_phrases,omitempty"`
+	PersonalTrackers   []string `json:"personal_trackers,omitempty"`
+	ForeignPhones      []string `json:"foreign_phones,omitempty"`
+	SuspiciousLinks    []string `json:"suspicious_links,omitempty"`
+	CreditCardRequests []string `json:"credit_card_requests,omitempty"`
+	IdentityRequests   []string `json:"identity_requests,omitempty"`
 }
 
 var (

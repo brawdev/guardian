@@ -5,12 +5,12 @@ import (
 )
 
 type HeaderResult struct {
-	FromDomain        string
-	ImpersonatedBrand string   // marca que intenta imitar
-	IsOfficialDomain  bool     // el from-domain ES el oficial
-	DKIMSigners       []string // dominios que firmaron
-	DKIMAligned       bool     // al menos un firmante == from-domain
-	ReplyToDiffers    bool     // reply-to apunta a dominio diferente
+	FromDomain        string   `json:"from_domain,omitempty"`
+	ImpersonatedBrand string   `json:"impersonated_brand,omitempty"`
+	IsOfficialDomain  bool     `json:"is_official_domain,omitempty"`
+	DKIMSigners       []string `json:"dkim_signers,omitempty"`
+	DKIMAligned       bool     `json:"dkim_aligned,omitempty"`
+	ReplyToDiffers    bool     `json:"reply_to_differs,omitempty"`
 }
 
 func CheckHeaders(pe ParsedEmail) HeaderResult {
