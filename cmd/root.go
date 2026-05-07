@@ -13,6 +13,9 @@ var rootCmd = &cobra.Command{
 	Short: "My Guardian — detector de fraude y phishing en e-commerce",
 	Long: `My Guardian analiza URLs y vendedores para detectar señales de fraude,
 phishing y estafas en tiendas en línea y marketplaces.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return serveCmd.RunE(cmd, args)
+	},
 }
 
 func Execute() {
