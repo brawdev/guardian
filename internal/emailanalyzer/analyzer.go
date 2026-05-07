@@ -1,6 +1,10 @@
 package emailanalyzer
 
-import "github.com/brawdev/guardian/internal/urlanalyzer"
+import (
+	"io"
+
+	"github.com/brawdev/guardian/internal/urlanalyzer"
+)
 
 type LinkAnalysis struct {
 	URL       string
@@ -27,14 +31,25 @@ func Analyze(path, safeBrowsingKey, virusTotalKey string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	result := analyzeEmail(pe, safeBrowsingKey, virusTotalKey)
+	result.File = path
+	return result, nil
+}
 
+func AnalyzeReader(r io.Reader, safeBrowsingKey, virusTotalKey string) (Result, error) {
+	pe, err := Parse(r)
+	if err != nil {
+		return Result{}, err
+	}
+	return analyzeEmail(pe, safeBrowsingKey, virusTotalKey), nil
+}
+
+func analyzeEmail(pe ParsedEmail, safeBrowsingKey, virusTotalKey string) Result {
 	result := Result{
-		File:             path,
 		Subject:          pe.Subject,
 		From:             pe.From,
 		HeadersAvailable: pe.HeadersAvailable,
 	}
-
 	if pe.HeadersAvailable {
 		result.Headers = CheckHeaders(pe)
 	}
@@ -42,8 +57,7 @@ func Analyze(path, safeBrowsingKey, virusTotalKey string) (Result, error) {
 	result.LinkResults = analyzeLinks(result.Body.SuspiciousLinks, safeBrowsingKey, virusTotalKey)
 	result.RiskScore, result.Flags = calculateRisk(result)
 	result.RiskLevel = scoreToLevel(result.RiskScore)
-
-	return result, nil
+	return result
 }
 
 func analyzeLinks(links []string, safeBrowsingKey, virusTotalKey string) []LinkAnalysis {

@@ -1,6 +1,6 @@
-# My Guardian
+# Guardian
 
-Herramienta de línea de comandos para detectar fraude, phishing y estafas en e-commerce. Analiza URLs sospechosas y correos electrónicos antes de que hagas clic, respondas o envíes un producto.
+Herramienta para detectar fraude, phishing y estafas en e-commerce. Disponible como CLI y como API REST. Analiza URLs sospechosas y correos electrónicos antes de que hagas clic, respondas o envíes un producto.
 
 ---
 
@@ -28,8 +28,8 @@ La herramienta está optimizada para las plataformas con mayor volumen de fraude
 ## Instalación
 
 ```bash
-git clone https://github.com/brauliodev/my-guardian
-cd my-guardian
+git clone https://github.com/brawdev/guardian
+cd guardian
 go build -o guardian .
 ```
 
@@ -41,7 +41,94 @@ mv guardian /usr/local/bin/
 
 ---
 
-## Comandos
+## API REST
+
+Guardian también puede correr como servidor HTTP para integrarse con bots, apps o cualquier cliente.
+
+### Levantar el servidor
+
+```bash
+guardian serve              # puerto 8080 por defecto
+guardian serve --port 9090
+```
+
+### Endpoints
+
+#### `GET /health`
+
+Verifica que el servidor esté corriendo.
+
+```bash
+curl http://localhost:8080/health
+# {"status":"ok"}
+```
+
+---
+
+#### `POST /api/v1/analyze/url`
+
+Analiza una URL en busca de phishing o fraude.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/analyze/url \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://amaz0n-ofertas.com"}'
+```
+
+**Body:**
+
+| Campo | Tipo | Requerido |
+|-------|------|-----------|
+| `url` | string | Sí |
+
+---
+
+#### `POST /api/v1/analyze/seller`
+
+Verifica el perfil de un vendedor en un marketplace.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/analyze/seller \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.mercadolibre.com.mx/perfil/VENDEDOR123", "platform": "mercadolibre"}'
+```
+
+**Body:**
+
+| Campo | Tipo | Requerido | Valores |
+|-------|------|-----------|---------|
+| `url` | string | Sí | URL del perfil |
+| `platform` | string | No | `mercadolibre`, `amazon`, `aliexpress` |
+
+---
+
+#### `POST /api/v1/analyze/email`
+
+Analiza el contenido de un correo sospechoso.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/analyze/email \
+  -H "Content-Type: application/json" \
+  -d '{"content": "From: Mercado Libre <notificacion@infomercadolibre.com>\nSubject: ..."}'
+```
+
+**Body:**
+
+| Campo | Tipo | Requerido |
+|-------|------|-----------|
+| `content` | string | Sí — contenido raw del correo |
+
+**Cómo obtener el contenido desde Gmail (recomendado):**
+1. Abre el correo sospechoso en Gmail
+2. Menú de tres puntos → **"Mostrar original"**
+3. **Ctrl+A** → **Cmd+C** para copiar todo
+4. Pega el texto como valor del campo `content`
+
+> Con "Mostrar original" se obtienen los headers técnicos completos (DKIM, SPF, Authentication-Results), lo que activa todos los checks de autenticidad del remitente.
+
+---
+
+## Comandos CLI
 
 ### `analyze` — Analiza una URL
 
