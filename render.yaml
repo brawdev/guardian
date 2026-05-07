@@ -2,8 +2,8 @@ services:
   - type: web
     name: guardian-api
     runtime: go
-    buildCommand: go build -o guardian .
-    startCommand: ./guardian serve
+    buildCommand: go build -o app .
+    startCommand: ./app serve
     envVars:
       - key: GOOGLE_SAFE_BROWSING_KEY
         sync: false
