@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: guardian-api
+    runtime: go
+    buildCommand: go build -o guardian .
+    startCommand: ./guardian serve
+    envVars:
+      - key: GOOGLE_SAFE_BROWSING_KEY
+        sync: false
+      - key: VIRUSTOTAL_KEY
+        sync: false

@@ -3,13 +3,14 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/brawdev/guardian/internal/api"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var servePort int
+var servePort string
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -22,14 +23,19 @@ var serveCmd = &cobra.Command{
 			VirusTotalKey:   viper.GetString("VIRUSTOTAL_KEY"),
 		}
 
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = servePort
+		}
+
 		router := api.NewRouter(cfg)
-		addr := fmt.Sprintf(":%d", servePort)
+		addr := ":" + port
 		fmt.Printf("Guardian API escuchando en http://localhost%s\n", addr)
 		return http.ListenAndServe(addr, router)
 	},
 }
 
 func init() {
-	serveCmd.Flags().IntVar(&servePort, "port", 8080, "puerto del servidor")
+	serveCmd.Flags().StringVar(&servePort, "port", "8080", "puerto del servidor")
 	rootCmd.AddCommand(serveCmd)
 }
