@@ -104,7 +104,9 @@ curl -X POST http://localhost:8080/api/v1/analyze/seller \
 
 #### `POST /api/v1/analyze/email`
 
-Analiza el contenido de un correo sospechoso.
+Analiza un correo sospechoso. Acepta dos formatos según lo que tengas disponible.
+
+**Opción A — Texto plano (JSON)**
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/analyze/email \
@@ -112,19 +114,35 @@ curl -X POST http://localhost:8080/api/v1/analyze/email \
   -d '{"content": "From: Mercado Libre <notificacion@infomercadolibre.com>\nSubject: ..."}'
 ```
 
-**Body:**
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `content` | string | Contenido raw del correo |
 
-| Campo | Tipo | Requerido |
-|-------|------|-----------|
-| `content` | string | Sí — contenido raw del correo |
-
-**Cómo obtener el contenido desde Gmail (recomendado):**
-1. Abre el correo sospechoso en Gmail
+**Cómo obtener el contenido desde Gmail:**
+1. Abre el correo en Gmail
 2. Menú de tres puntos → **"Mostrar original"**
 3. **Ctrl+A** → **Cmd+C** para copiar todo
 4. Pega el texto como valor del campo `content`
 
-> Con "Mostrar original" se obtienen los headers técnicos completos (DKIM, SPF, Authentication-Results), lo que activa todos los checks de autenticidad del remitente.
+---
+
+**Opción B — Archivo `.eml` (multipart)**
+
+```bash
+curl -X POST http://localhost:8080/api/v1/analyze/email \
+  -F "file=@correo.eml"
+```
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `file` | archivo | Archivo `.eml` descargado desde Gmail |
+
+**Cómo obtener el `.eml` desde Gmail:**
+1. Abre el correo en Gmail
+2. Menú de tres puntos → **"Descargar original"**
+3. Se descarga el archivo `.eml` con headers completos
+
+> Ambas opciones incluyen headers técnicos completos (DKIM, SPF, Authentication-Results), activando todos los checks de autenticidad del remitente.
 
 ---
 
