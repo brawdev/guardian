@@ -5,6 +5,7 @@ go 1.26.2
 require (
 	github.com/agnivade/levenshtein v1.2.1
 	github.com/fatih/color v1.19.0
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/likexian/whois v1.15.7
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -14,7 +15,6 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/go-chi/chi/v5 v5.2.5 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
