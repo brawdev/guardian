@@ -19,6 +19,8 @@ type Result struct {
 	Whois            WhoisResult      `json:"whois,omitempty"`
 	Redirects        RedirectResult   `json:"redirects,omitempty"`
 	Reputation       ReputationResult `json:"reputation,omitempty"`
+	Tranco           TrancoResult     `json:"tranco,omitempty"`
+	GeoIP            GeoIPResult      `json:"geo_ip,omitempty"`
 	RiskScore        int              `json:"risk_score,omitempty"`
 	RiskLevel        string           `json:"risk_level,omitempty"`
 	Flags            []string         `json:"flags,omitempty"`
@@ -56,12 +58,14 @@ func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
 	result.SpoofedSubdomain = checkSpoofedSubdomain(parsed.Hostname())
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(6)
 
 	go func() { defer wg.Done(); result.Typo = CheckTyposquatting(parsed.Hostname()) }()
 	go func() { defer wg.Done(); result.Whois = CheckWhois(parsed.Hostname()) }()
 	go func() { defer wg.Done(); result.Redirects = CheckRedirects(rawURL) }()
 	go func() { defer wg.Done(); result.Reputation = CheckReputation(rawURL, safeBrowsingKey, virusTotalKey) }()
+	go func() { defer wg.Done(); result.Tranco = CheckTrancoRank(parsed.Hostname()) }()
+	go func() { defer wg.Done(); result.GeoIP = CheckGeoIP(parsed.Hostname()) }()
 
 	wg.Wait()
 
@@ -163,6 +167,21 @@ func calculateRisk(r Result) (int, []string) {
 	} else if vt.Error == "" && vt.Suspicious > 0 {
 		score += 20
 		flags = append(flags, fmt.Sprintf("VirusTotal: %d engines sospechoso", vt.Suspicious))
+	}
+
+	if r.Tranco.Error == "" && !r.Tranco.InTopList {
+		score += 15
+		flags = append(flags, "dominio no aparece en el top 1M de Tranco (desconocido o muy nuevo)")
+	}
+
+	if r.GeoIP.Error == "" && isHighRiskCountry(r.GeoIP.CountryCode) {
+		score += 20
+		flags = append(flags, "servidor alojado en país de alto riesgo: "+r.GeoIP.Country+" ("+r.GeoIP.CountryCode+")")
+	}
+
+	if r.GeoIP.Error == "" && r.GeoIP.IsHosting {
+		score += 10
+		flags = append(flags, "IP pertenece a infraestructura de hosting/datacenter ("+r.GeoIP.ISP+")")
 	}
 
 	if score > 100 {
