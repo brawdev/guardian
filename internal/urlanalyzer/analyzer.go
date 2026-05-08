@@ -8,17 +8,20 @@ import (
 )
 
 type Result struct {
-	URL          string           `json:"url,omitempty"`
-	OriginalURL  string           `json:"original_url,omitempty"`
-	IsShortURL   bool             `json:"is_short_url,omitempty"`
-	Hostname     string           `json:"hostname,omitempty"`
-	Typo         TypoResult       `json:"typo,omitempty"`
-	Whois        WhoisResult      `json:"whois,omitempty"`
-	Redirects    RedirectResult   `json:"redirects,omitempty"`
-	Reputation   ReputationResult `json:"reputation,omitempty"`
-	RiskScore    int              `json:"risk_score,omitempty"`
-	RiskLevel    string           `json:"risk_level,omitempty"`
-	Flags        []string         `json:"flags,omitempty"`
+	URL              string           `json:"url,omitempty"`
+	OriginalURL      string           `json:"original_url,omitempty"`
+	IsShortURL       bool             `json:"is_short_url,omitempty"`
+	Hostname         string           `json:"hostname,omitempty"`
+	SuspiciousTLD    bool             `json:"suspicious_tld,omitempty"`
+	TLD              string           `json:"tld,omitempty"`
+	SpoofedSubdomain string           `json:"spoofed_subdomain,omitempty"`
+	Typo             TypoResult       `json:"typo,omitempty"`
+	Whois            WhoisResult      `json:"whois,omitempty"`
+	Redirects        RedirectResult   `json:"redirects,omitempty"`
+	Reputation       ReputationResult `json:"reputation,omitempty"`
+	RiskScore        int              `json:"risk_score,omitempty"`
+	RiskLevel        string           `json:"risk_level,omitempty"`
+	Flags            []string         `json:"flags,omitempty"`
 }
 
 func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
@@ -49,6 +52,9 @@ func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
 		result.IsShortURL = true
 	}
 
+	result.SuspiciousTLD, result.TLD = checkSuspiciousTLD(parsed.Hostname())
+	result.SpoofedSubdomain = checkSpoofedSubdomain(parsed.Hostname())
+
 	var wg sync.WaitGroup
 	wg.Add(4)
 
@@ -65,6 +71,30 @@ func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
 	return result, nil
 }
 
+func checkSuspiciousTLD(hostname string) (bool, string) {
+	lower := strings.ToLower(hostname)
+	for _, tld := range suspiciousTLDs {
+		if strings.HasSuffix(lower, tld) {
+			return true, tld
+		}
+	}
+	return false, ""
+}
+
+func checkSpoofedSubdomain(hostname string) string {
+	spoofed := []string{"gov", "secure", "login", "account", "banking", "pagos", "pago", "verify", "update"}
+	parts := strings.Split(strings.ToLower(hostname), ".")
+	if len(parts) > 2 {
+		sub := parts[0]
+		for _, s := range spoofed {
+			if sub == s {
+				return sub
+			}
+		}
+	}
+	return ""
+}
+
 func calculateRisk(r Result) (int, []string) {
 	score := 0
 	var flags []string
@@ -72,6 +102,16 @@ func calculateRisk(r Result) (int, []string) {
 	if r.IsShortURL {
 		score += 10
 		flags = append(flags, "URL corto ("+r.OriginalURL+") — destino real oculto antes de expandir")
+	}
+
+	if r.SuspiciousTLD {
+		score += 30
+		flags = append(flags, "TLD '"+r.TLD+"' frecuentemente usado en sitios de phishing y fraude")
+	}
+
+	if r.SpoofedSubdomain != "" {
+		score += 25
+		flags = append(flags, "subdominio '"+r.SpoofedSubdomain+".' usado para aparentar oficialidad")
 	}
 
 	if r.Typo.IsPunycode {
