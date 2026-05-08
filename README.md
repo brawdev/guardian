@@ -83,16 +83,41 @@ curl -X POST http://localhost:8080/api/v1/analyze/url \
 
 **Qué detecta:**
 
-| Señal | Descripción |
-|-------|-------------|
-| Typosquatting | Dominios que imitan marcas (`amaz0n`, `infomercadolibre`, `paypa1`) |
-| Punycode/IDN | Dominios con caracteres Unicode que se ven idénticos a marcas reales (`xn--mercadolbre-q1b.com`) |
-| URL cortos | Expande `bit.ly`, `tinyurl`, `t.co`, etc. antes de analizar el destino real |
-| Dominio nuevo | Creado hace menos de 90 días |
-| SSL inválido | Certificado autofirmado o vencido |
-| Redirecciones | Cadenas que cambian de dominio |
-| Google Safe Browsing | Base de datos de sitios maliciosos |
-| VirusTotal | Verificación contra +90 motores antivirus |
+| Señal | Campo en respuesta | Descripción |
+|-------|--------------------|-------------|
+| Typosquatting | `typo` | Dominios que imitan marcas (`amaz0n`, `infomercadolibre`, `paypa1`) |
+| Punycode/IDN | `typo.is_punycode` | Dominios con caracteres Unicode que se ven idénticos a marcas reales |
+| TLD sospechoso | `suspicious_tld`, `tld` | `.sbs`, `.xyz`, `.top`, `.click`, `.tk`, `.ml` y otros frecuentes en phishing |
+| Subdominio falso | `spoofed_subdomain` | `login.banco-falso.com`, `secure.`, `account.` — para aparentar oficialidad |
+| URL cortos | `is_short_url`, `original_url` | Expande `bit.ly`, `tinyurl`, `t.co`, etc. antes de analizar el destino real |
+| Dominio nuevo | `whois.is_new`, `whois.domain_age` | Creado hace menos de 90 días |
+| SSL inválido | `redirects.tls_valid` | Certificado autofirmado o vencido |
+| Redirecciones | `redirects.cross_domain`, `redirects.hop_count` | Cadenas que cambian de dominio |
+| Google Safe Browsing | `reputation.safe_browsing` | Base de datos de sitios maliciosos de Google |
+| VirusTotal | `reputation.virus_total` | Verificación contra +90 motores antivirus |
+| Tranco rank | `tranco` | Posición del dominio en el top 1M de sitios más visitados — dominios desconocidos suman riesgo |
+| GeoIP | `geo_ip` | País e ISP donde está alojado el servidor — países de alto riesgo y hosting/datacenter suman riesgo |
+
+**Países de alto riesgo detectados:** Rusia, China, Nigeria, Ucrania, Corea del Norte, Rumania, Bulgaria.
+
+**Ponderación de riesgo (`risk_score`):**
+
+| Señal | Puntos |
+|-------|--------|
+| TLD sospechoso | +30 |
+| Typosquatting confirmado | +40 |
+| Google Safe Browsing / VirusTotal malicioso | +50 c/u |
+| Punycode/IDN | +30 |
+| Subdominio falso (`login.`, `secure.`) | +25 |
+| Dominio nuevo (<90 días) | +25 |
+| SSL inválido | +20 |
+| Servidor en país de alto riesgo | +20 |
+| Redirección a dominio diferente | +15 |
+| Dominio no en Tranco top 1M | +15 |
+| IP en hosting/datacenter | +10 |
+| URL corto | +10 |
+| Cadena de 3+ redirecciones | +10 |
+| VirusTotal sospechoso (no malicioso) | +20 |
 
 ---
 
@@ -209,11 +234,17 @@ guardian analyze https://mercadolibre-descuentos.mx --json
 | Señal | Descripción |
 |-------|-------------|
 | Typosquatting | Dominios que imitan marcas conocidas (`amaz0n`, `infomercadolibre`, `paypa1`) |
-| Dominio nuevo | Dominios creados hace menos de 90 días — típico en sitios de fraude |
+| Punycode/IDN | Dominios con caracteres Unicode visualmente idénticos a marcas reales |
+| TLD sospechoso | `.sbs`, `.xyz`, `.top`, `.click`, `.tk`, `.ml` y otros de alto riesgo |
+| Subdominio falso | `login.`, `secure.`, `account.` para aparentar oficialidad |
+| URL cortos | Expande automáticamente antes de analizar |
+| Dominio nuevo | Creados hace menos de 90 días — típico en sitios de fraude |
 | SSL inválido | Certificado autofirmado o vencido |
-| Redirecciones | Cadenas de redirección que cambian de dominio |
+| Redirecciones | Cadenas que cambian de dominio |
 | Google Safe Browsing | Base de datos de sitios maliciosos de Google |
-| VirusTotal | Verificación contra más de 90 motores antivirus y reputación web |
+| VirusTotal | Verificación contra más de 90 motores antivirus |
+| Tranco rank | Dominios fuera del top 1M de sitios conocidos suman riesgo |
+| GeoIP | País e ISP del servidor — detecta hosting en países de alto riesgo |
 
 **Ejemplo de salida:**
 
