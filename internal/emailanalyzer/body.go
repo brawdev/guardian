@@ -3,17 +3,25 @@ package emailanalyzer
 import (
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html"
 )
 
+type HiddenLink struct {
+	DisplayText string `json:"display_text,omitempty"`
+	ActualURL   string `json:"actual_url,omitempty"`
+}
+
 type BodyResult struct {
-	WhatsAppLinks      []string `json:"whatsapp_links,omitempty"`
-	BankAccounts       []string `json:"bank_accounts,omitempty"`
-	UrgencyPhrases     []string `json:"urgency_phrases,omitempty"`
-	PersonalTrackers   []string `json:"personal_trackers,omitempty"`
-	ForeignPhones      []string `json:"foreign_phones,omitempty"`
-	SuspiciousLinks    []string `json:"suspicious_links,omitempty"`
-	CreditCardRequests []string `json:"credit_card_requests,omitempty"`
-	IdentityRequests   []string `json:"identity_requests,omitempty"`
+	WhatsAppLinks      []string     `json:"whatsapp_links,omitempty"`
+	BankAccounts       []string     `json:"bank_accounts,omitempty"`
+	UrgencyPhrases     []string     `json:"urgency_phrases,omitempty"`
+	PersonalTrackers   []string     `json:"personal_trackers,omitempty"`
+	ForeignPhones      []string     `json:"foreign_phones,omitempty"`
+	SuspiciousLinks    []string     `json:"suspicious_links,omitempty"`
+	HiddenLinks        []HiddenLink `json:"hidden_links,omitempty"`
+	CreditCardRequests []string     `json:"credit_card_requests,omitempty"`
+	IdentityRequests   []string     `json:"identity_requests,omitempty"`
 }
 
 var (
@@ -93,13 +101,15 @@ func CheckBody(pe ParsedEmail, fromDomain string) BodyResult {
 			continue
 		}
 		linkRoot := rootDomain(linkDomain)
-		// Excluir dominios oficiales conocidos y CDNs
 		if linkRoot != fromRoot && !isKnownCDN(linkRoot) {
 			if !containsString(result.SuspiciousLinks, link) {
 				result.SuspiciousLinks = append(result.SuspiciousLinks, link)
 			}
 		}
 	}
+
+	// Links ocultos en HTML: texto visible ≠ href real
+	result.HiddenLinks = findHiddenLinks(pe.HTMLBody)
 
 	return result
 }
@@ -170,6 +180,72 @@ func isKnownCDN(domain string) bool {
 		}
 	}
 	return false
+}
+
+func findHiddenLinks(htmlBody string) []HiddenLink {
+	if htmlBody == "" {
+		return nil
+	}
+	doc, err := html.Parse(strings.NewReader(htmlBody))
+	if err != nil {
+		return nil
+	}
+
+	var results []HiddenLink
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			var href string
+			for _, attr := range n.Attr {
+				if attr.Key == "href" {
+					href = strings.TrimSpace(attr.Val)
+					break
+				}
+			}
+			if href == "" || !strings.HasPrefix(href, "http") {
+				goto next
+			}
+
+			// Extraer texto visible del enlace
+			var textBuf strings.Builder
+			var extractText func(*html.Node)
+			extractText = func(n *html.Node) {
+				if n.Type == html.TextNode {
+					textBuf.WriteString(n.Data)
+				}
+				for c := n.FirstChild; c != nil; c = c.NextSibling {
+					extractText(c)
+				}
+			}
+			extractText(n)
+			displayText := strings.TrimSpace(textBuf.String())
+
+			// Si el texto visible parece una URL o dominio diferente al href
+			if looksLikeURL(displayText) {
+				hrefDomain := rootDomain(extractLinkDomain(href))
+				displayDomain := rootDomain(extractLinkDomain(displayText))
+				if displayDomain != "" && hrefDomain != displayDomain {
+					results = append(results, HiddenLink{
+						DisplayText: displayText,
+						ActualURL:   href,
+					})
+				}
+			}
+		}
+	next:
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(doc)
+	return results
+}
+
+func looksLikeURL(s string) bool {
+	s = strings.ToLower(s)
+	return strings.HasPrefix(s, "http") || strings.Contains(s, ".com") ||
+		strings.Contains(s, ".mx") || strings.Contains(s, ".net") ||
+		strings.Contains(s, ".org") || strings.Contains(s, ".io")
 }
 
 func containsString(slice []string, s string) bool {

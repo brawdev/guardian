@@ -1,16 +1,21 @@
 package emailanalyzer
 
 import (
+	"net/mail"
 	"strings"
 )
 
 type HeaderResult struct {
-	FromDomain        string   `json:"from_domain,omitempty"`
-	ImpersonatedBrand string   `json:"impersonated_brand,omitempty"`
-	IsOfficialDomain  bool     `json:"is_official_domain,omitempty"`
-	DKIMSigners       []string `json:"dkim_signers,omitempty"`
-	DKIMAligned       bool     `json:"dkim_aligned,omitempty"`
-	ReplyToDiffers    bool     `json:"reply_to_differs,omitempty"`
+	FromDomain          string      `json:"from_domain,omitempty"`
+	DisplayName         string      `json:"display_name,omitempty"`
+	DisplayNameSpoofing bool        `json:"display_name_spoofing,omitempty"`
+	ImpersonatedBrand   string      `json:"impersonated_brand,omitempty"`
+	IsOfficialDomain    bool        `json:"is_official_domain,omitempty"`
+	DKIMSigners         []string    `json:"dkim_signers,omitempty"`
+	DKIMAligned         bool        `json:"dkim_aligned,omitempty"`
+	ReplyToDiffers      bool        `json:"reply_to_differs,omitempty"`
+	SPF                 SPFResult   `json:"spf,omitempty"`
+	DMARC               DMARCResult `json:"dmarc,omitempty"`
 }
 
 func CheckHeaders(pe ParsedEmail) HeaderResult {
@@ -18,13 +23,10 @@ func CheckHeaders(pe ParsedEmail) HeaderResult {
 		FromDomain: pe.FromDomain,
 	}
 
-	// Detectar qué marca intenta imitar el from-domain
 	result.ImpersonatedBrand, result.IsOfficialDomain = detectImpersonation(pe.FromDomain)
-
-	// Extraer dominios que firmaron DKIM
+	result.DisplayName, result.DisplayNameSpoofing = detectDisplayNameSpoofing(pe.From, pe.FromDomain)
 	result.DKIMSigners = extractDKIMSigners(pe.DKIMHeaders, pe.AuthResults)
 
-	// DKIM alignment: algún firmante debe coincidir con el from-domain
 	fromRoot := rootDomain(pe.FromDomain)
 	for _, signer := range result.DKIMSigners {
 		if rootDomain(signer) == fromRoot {
@@ -33,7 +35,6 @@ func CheckHeaders(pe ParsedEmail) HeaderResult {
 		}
 	}
 
-	// Reply-To en dominio diferente
 	if pe.ReplyTo != "" {
 		replyDomain := extractFromDomain(pe.ReplyTo)
 		if replyDomain != "" && rootDomain(replyDomain) != fromRoot {
@@ -41,7 +42,45 @@ func CheckHeaders(pe ParsedEmail) HeaderResult {
 		}
 	}
 
+	// SPF y DMARC en paralelo
+	spfCh := make(chan SPFResult, 1)
+	dmarcCh := make(chan DMARCResult, 1)
+	go func() { spfCh <- CheckSPF(pe.FromDomain) }()
+	go func() { dmarcCh <- CheckDMARC(pe.FromDomain) }()
+	result.SPF = <-spfCh
+	result.DMARC = <-dmarcCh
+
 	return result
+}
+
+func detectDisplayNameSpoofing(from, fromDomain string) (displayName string, spoofing bool) {
+	addr, err := mail.ParseAddress(from)
+	if err != nil {
+		return "", false
+	}
+	displayName = addr.Name
+	if displayName == "" {
+		return "", false
+	}
+
+	lowerName := strings.ToLower(displayName)
+	for brandName, officialDomains := range officialSenderDomains {
+		if !strings.Contains(lowerName, brandName) {
+			continue
+		}
+		// El display name menciona la marca — verificar si el dominio es oficial
+		isOfficial := false
+		for _, od := range officialDomains {
+			if strings.ToLower(fromDomain) == od {
+				isOfficial = true
+				break
+			}
+		}
+		if !isOfficial {
+			return displayName, true
+		}
+	}
+	return displayName, false
 }
 
 func detectImpersonation(domain string) (brand string, isOfficial bool) {

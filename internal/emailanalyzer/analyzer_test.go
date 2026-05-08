@@ -1,10 +1,20 @@
 package emailanalyzer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func containsSubstring(flags []string, sub string) bool {
+	for _, f := range flags {
+		if strings.Contains(f, sub) {
+			return true
+		}
+	}
+	return false
+}
 
 func TestCalculateRisk_ScoreCritico(t *testing.T) {
 	r := Result{
@@ -34,6 +44,8 @@ func TestCalculateRisk_ScoreBajo(t *testing.T) {
 			FromDomain:       "mercadolibre.com",
 			IsOfficialDomain: true,
 			DKIMAligned:      true,
+			SPF:              SPFResult{HasRecord: true, Policy: "-all", IsStrict: true},
+			DMARC:            DMARCResult{HasRecord: true, Policy: "reject", IsStrict: true},
 		},
 		Body: BodyResult{},
 	}
@@ -55,7 +67,7 @@ func TestCalculateRisk_TarjetaCredito(t *testing.T) {
 
 	assert.GreaterOrEqual(t, score, 50, "solicitud de CVV debe ser ALTO por sí sola")
 	assert.NotEmpty(t, flags)
-	assert.Contains(t, flags[0], "tarjeta")
+	assert.True(t, containsSubstring(flags, "tarjeta"), "debe haber un flag sobre tarjeta")
 }
 
 func TestCalculateRisk_DocumentosIdentidad(t *testing.T) {
@@ -69,7 +81,7 @@ func TestCalculateRisk_DocumentosIdentidad(t *testing.T) {
 
 	assert.GreaterOrEqual(t, score, 25)
 	assert.NotEmpty(t, flags)
-	assert.Contains(t, flags[0], "identidad")
+	assert.True(t, containsSubstring(flags, "identidad"), "debe haber un flag sobre identidad")
 }
 
 func TestCalculateRisk_NoCap100(t *testing.T) {

@@ -99,6 +99,12 @@ func calculateRisk(r Result) (int, []string) {
 		flags = append(flags, "dominio del remitente '"+h.FromDomain+"' suplanta a '"+h.ImpersonatedBrand+"'")
 	}
 
+	// Display name suplanta una marca conocida
+	if h.DisplayNameSpoofing {
+		score += 35
+		flags = append(flags, "nombre visible '"+h.DisplayName+"' suplanta una marca pero el dominio es '"+h.FromDomain+"'")
+	}
+
 	// DKIM firmado por dominio diferente al remitente
 	if !h.DKIMAligned && len(h.DKIMSigners) > 0 {
 		score += 20
@@ -109,6 +115,24 @@ func calculateRisk(r Result) (int, []string) {
 	if h.ReplyToDiffers {
 		score += 15
 		flags = append(flags, "Reply-To apunta a dominio diferente al remitente")
+	}
+
+	// SPF ausente o permisivo
+	if !h.SPF.HasRecord {
+		score += 10
+		flags = append(flags, "sin registro SPF — el dominio no protege su identidad de email")
+	} else if h.SPF.Policy == "+all" {
+		score += 20
+		flags = append(flags, "SPF '+all' permite cualquier servidor enviar en nombre del dominio")
+	}
+
+	// DMARC ausente o en modo monitor
+	if !h.DMARC.HasRecord {
+		score += 10
+		flags = append(flags, "sin registro DMARC — sin política de rechazo de emails falsificados")
+	} else if h.DMARC.Policy == "none" {
+		score += 5
+		flags = append(flags, "DMARC en modo 'none' — solo monitoreo, sin rechazo activo")
 	}
 
 	// Soporte vía WhatsApp
@@ -154,6 +178,14 @@ func calculateRisk(r Result) (int, []string) {
 	if len(r.Body.ForeignPhones) > 0 {
 		score += 15
 		flags = append(flags, "teléfono de país inconsistente: "+joinStrings(r.Body.ForeignPhones))
+	}
+
+	// Links ocultos: texto visible ≠ href real
+	if len(r.Body.HiddenLinks) > 0 {
+		score += 30
+		for _, hl := range r.Body.HiddenLinks {
+			flags = append(flags, "link oculto: texto '"+hl.DisplayText+"' apunta a '"+hl.ActualURL+"'")
+		}
 	}
 
 	// Links sospechosos en el cuerpo
