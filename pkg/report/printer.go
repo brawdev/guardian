@@ -18,7 +18,12 @@ func PrintURL(result urlanalyzer.Result, asJSON bool) {
 	}
 
 	printHeader("ANÁLISIS DE URL")
-	fmt.Printf("  URL:      %s\n", result.URL)
+	if result.IsShortURL {
+		fmt.Printf("  URL orig: %s\n", result.OriginalURL)
+		fmt.Printf("  Expandida:%s\n", result.URL)
+	} else {
+		fmt.Printf("  URL:      %s\n", result.URL)
+	}
 	fmt.Printf("  Dominio:  %s\n", result.Hostname)
 	fmt.Println()
 
@@ -26,9 +31,17 @@ func PrintURL(result urlanalyzer.Result, asJSON bool) {
 	fmt.Printf("  Riesgo:   %s  (%d/100)\n", levelColor(result.RiskLevel), result.RiskScore)
 	fmt.Println()
 
-	printSection("CHECKS")
+	printSection("CHECKS DE DOMINIO")
 
-	// Typosquatting
+	// URL corto
+	if result.IsShortURL {
+		warn("  URL corto", "destino real oculto — expandido antes de analizar")
+	}
+
+	// Typosquatting / Punycode
+	if result.Typo.IsPunycode {
+		danger("  Punycode/IDN", fmt.Sprintf("'%s' se muestra como '%s'", result.Hostname, result.Typo.DecodedDomain))
+	}
 	if result.Typo.IsTyposquat {
 		var typoDetail string
 		switch result.Typo.MatchType {
@@ -39,9 +52,23 @@ func PrintURL(result urlanalyzer.Result, asJSON bool) {
 		default:
 			typoDetail = fmt.Sprintf("similar a '%s' (distancia %d)", result.Typo.ClosestBrand, result.Typo.Distance)
 		}
-		warn("  Typosquatting", typoDetail)
-	} else {
+		danger("  Typosquatting", typoDetail)
+	} else if !result.Typo.IsPunycode {
 		ok("  Typosquatting", "sin coincidencias sospechosas")
+	}
+
+	// TLD sospechoso
+	if result.SuspiciousTLD {
+		danger("  TLD", fmt.Sprintf("'%s' frecuentemente usado en phishing", result.TLD))
+	} else {
+		ok("  TLD", "sin señales de riesgo")
+	}
+
+	// Subdominio falso
+	if result.SpoofedSubdomain != "" {
+		warn("  Subdominio", fmt.Sprintf("'%s.' usado para aparentar oficialidad", result.SpoofedSubdomain))
+	} else {
+		ok("  Subdominio", "sin patrones de suplantación")
 	}
 
 	// WHOIS
@@ -52,6 +79,9 @@ func PrintURL(result urlanalyzer.Result, asJSON bool) {
 	} else {
 		ok("  WHOIS", fmt.Sprintf("dominio creado %s (%d días)", result.Whois.CreatedDate, result.Whois.DomainAge))
 	}
+
+	fmt.Println()
+	printSection("CHECKS DE INFRAESTRUCTURA")
 
 	// TLS
 	if !result.Redirects.TLSValid {
@@ -70,6 +100,42 @@ func PrintURL(result urlanalyzer.Result, asJSON bool) {
 	} else {
 		ok("  Redirecciones", "sin redirecciones")
 	}
+
+	// Tranco
+	tr := result.Tranco
+	if tr.Error != "" {
+		info("  Tranco", "no disponible: "+tr.Error)
+	} else if tr.InTopList {
+		ok("  Tranco", fmt.Sprintf("top 1M — posición #%d", tr.Rank))
+	} else {
+		warn("  Tranco", "dominio no aparece en el top 1M de sitios conocidos")
+	}
+
+	// GeoIP
+	geo := result.GeoIP
+	if geo.Error != "" {
+		info("  GeoIP", "no disponible: "+geo.Error)
+	} else {
+		geoDetail := geo.Country
+		if geo.City != "" {
+			geoDetail = geo.City + ", " + geo.Country
+		}
+		if geo.ISP != "" {
+			geoDetail += " — " + geo.ISP
+		}
+		highRisk := geo.CountryCode == "RU" || geo.CountryCode == "CN" || geo.CountryCode == "NG" ||
+			geo.CountryCode == "UA" || geo.CountryCode == "KP" || geo.CountryCode == "RO" || geo.CountryCode == "BG"
+		if highRisk {
+			danger("  GeoIP", geoDetail+" (país de alto riesgo)")
+		} else if geo.IsHosting {
+			warn("  GeoIP", geoDetail+" (hosting/datacenter)")
+		} else {
+			ok("  GeoIP", geoDetail)
+		}
+	}
+
+	fmt.Println()
+	printSection("CHECKS DE REPUTACIÓN")
 
 	// Safe Browsing
 	sb := result.Reputation.SafeBrowsing
