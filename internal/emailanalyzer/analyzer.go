@@ -2,7 +2,10 @@ package emailanalyzer
 
 import (
 	"io"
+	"strings"
+	"sync"
 
+	"github.com/brawdev/guardian/internal/phoneanalyzer"
 	"github.com/brawdev/guardian/internal/urlanalyzer"
 )
 
@@ -14,16 +17,17 @@ type LinkAnalysis struct {
 }
 
 type Result struct {
-	File             string         `json:"file,omitempty"`
-	Subject          string         `json:"subject,omitempty"`
-	From             string         `json:"from,omitempty"`
-	Headers          HeaderResult   `json:"headers,omitempty"`
-	Body             BodyResult     `json:"body,omitempty"`
-	LinkResults      []LinkAnalysis `json:"link_results,omitempty"`
-	RiskScore        int            `json:"risk_score,omitempty"`
-	RiskLevel        string         `json:"risk_level,omitempty"`
-	Flags            []string       `json:"flags,omitempty"`
-	HeadersAvailable bool           `json:"headers_available,omitempty"`
+	File             string                  `json:"file,omitempty"`
+	Subject          string                  `json:"subject,omitempty"`
+	From             string                  `json:"from,omitempty"`
+	Headers          HeaderResult            `json:"headers,omitempty"`
+	Body             BodyResult              `json:"body,omitempty"`
+	LinkResults      []LinkAnalysis          `json:"link_results,omitempty"`
+	PhoneResults     []phoneanalyzer.Result  `json:"phone_results,omitempty"`
+	RiskScore        int                     `json:"risk_score,omitempty"`
+	RiskLevel        string                  `json:"risk_level,omitempty"`
+	Flags            []string                `json:"flags,omitempty"`
+	HeadersAvailable bool                    `json:"headers_available,omitempty"`
 }
 
 func Analyze(path, safeBrowsingKey, virusTotalKey string) (Result, error) {
@@ -54,10 +58,72 @@ func analyzeEmail(pe ParsedEmail, safeBrowsingKey, virusTotalKey string) Result 
 		result.Headers = CheckHeaders(pe)
 	}
 	result.Body = CheckBody(pe, pe.FromDomain)
-	result.LinkResults = analyzeLinks(result.Body.SuspiciousLinks, safeBrowsingKey, virusTotalKey)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		result.LinkResults = analyzeLinks(result.Body.SuspiciousLinks, safeBrowsingKey, virusTotalKey)
+	}()
+	go func() {
+		defer wg.Done()
+		result.PhoneResults = analyzePhones(result.Body.AllPhones, pe.FromDomain)
+	}()
+	wg.Wait()
+
 	result.RiskScore, result.Flags = calculateRisk(result)
 	result.RiskLevel = scoreToLevel(result.RiskScore)
 	return result
+}
+
+func analyzePhones(phones []string, fromDomain string) []phoneanalyzer.Result {
+	if len(phones) == 0 {
+		return nil
+	}
+	countryCtx := countryFromDomain(fromDomain)
+	var results []phoneanalyzer.Result
+	seen := map[string]bool{}
+	for _, p := range phones {
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		r := phoneanalyzer.Analyze(p, countryCtx)
+		// incluir si es VoIP, país inconsistente, o formato inválido
+		if r.IsVoIP || len(r.Flags) > 0 {
+			results = append(results, r)
+		}
+	}
+	return results
+}
+
+func countryFromDomain(domain string) string {
+	d := strings.ToLower(domain)
+	// Por TLD de país
+	for _, pair := range []struct{ suffix, country string }{
+		{".com.mx", "MX"}, {".mx", "MX"},
+		{".com.ar", "AR"}, {".ar", "AR"},
+		{".com.br", "BR"}, {".br", "BR"},
+		{".com.co", "CO"}, {".co", "CO"},
+		{".com.cl", "CL"}, {".cl", "CL"},
+		{".com.pe", "PE"}, {".pe", "PE"},
+		{".com.es", "ES"}, {".es", "ES"},
+	} {
+		if strings.HasSuffix(d, pair.suffix) {
+			return pair.country
+		}
+	}
+	// Por marca con país principal único
+	for _, pair := range []struct{ brand, country string }{
+		{"liverpool", "MX"}, {"elektra", "MX"}, {"coppel", "MX"},
+		{"aeromexico", "MX"}, {"volaris", "MX"},
+		{"falabella", "CL"}, {"ripley", "CL"},
+	} {
+		if strings.Contains(d, pair.brand) {
+			return pair.country
+		}
+	}
+	return ""
 }
 
 func analyzeLinks(links []string, safeBrowsingKey, virusTotalKey string) []LinkAnalysis {
@@ -178,6 +244,18 @@ func calculateRisk(r Result) (int, []string) {
 	if len(r.Body.ForeignPhones) > 0 {
 		score += 15
 		flags = append(flags, "teléfono de país inconsistente: "+joinStrings(r.Body.ForeignPhones))
+	}
+
+	// Teléfonos sospechosos detectados en el cuerpo
+	for _, pr := range r.PhoneResults {
+		switch pr.RiskLevel {
+		case "CRITICO", "ALTO":
+			score += 20
+			flags = append(flags, "teléfono sospechoso en el cuerpo: "+pr.Input+" — "+joinStrings(pr.Flags))
+		case "MEDIO":
+			score += 10
+			flags = append(flags, "teléfono de riesgo medio: "+pr.Input+" — "+joinStrings(pr.Flags))
+		}
 	}
 
 	// Links ocultos: texto visible ≠ href real

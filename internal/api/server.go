@@ -31,6 +31,7 @@ func NewRouter(cfg Config) http.Handler {
 		r.Post("/analyze/url", handlers.AnalyzeURL(cfg.SafeBrowsingKey, cfg.VirusTotalKey))
 		r.Post("/analyze/seller", handlers.AnalyzeSeller())
 		r.Post("/analyze/email", handlers.AnalyzeEmail(cfg.SafeBrowsingKey, cfg.VirusTotalKey))
+		r.Post("/analyze/phone", handlers.AnalyzePhone())
 	})
 
 	return r

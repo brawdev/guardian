@@ -17,6 +17,7 @@ type BodyResult struct {
 	BankAccounts       []string     `json:"bank_accounts,omitempty"`
 	UrgencyPhrases     []string     `json:"urgency_phrases,omitempty"`
 	PersonalTrackers   []string     `json:"personal_trackers,omitempty"`
+	AllPhones          []string     `json:"all_phones,omitempty"`
 	ForeignPhones      []string     `json:"foreign_phones,omitempty"`
 	SuspiciousLinks    []string     `json:"suspicious_links,omitempty"`
 	HiddenLinks        []HiddenLink `json:"hidden_links,omitempty"`
@@ -71,11 +72,14 @@ func CheckBody(pe ParsedEmail, fromDomain string) BodyResult {
 		}
 	}
 
-	// Teléfonos con código de país sospechoso
-	// (ej: +54 Argentina en email que imita MercadoLibre México)
+	// Todos los teléfonos detectados + clasificación de extranjeros
 	for _, phone := range rePhone.FindAllString(combined, -1) {
-		if isForeignPhone(phone, fromDomain) {
-			result.ForeignPhones = append(result.ForeignPhones, strings.TrimSpace(phone))
+		phone = strings.TrimSpace(phone)
+		if !containsString(result.AllPhones, phone) {
+			result.AllPhones = append(result.AllPhones, phone)
+		}
+		if isForeignPhone(phone, fromDomain) && !containsString(result.ForeignPhones, phone) {
+			result.ForeignPhones = append(result.ForeignPhones, phone)
 		}
 	}
 

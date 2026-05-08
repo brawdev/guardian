@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/agnivade/levenshtein"
+	"golang.org/x/net/idna"
 )
 
 type TypoResult struct {
@@ -13,6 +14,8 @@ type TypoResult struct {
 	Suspicious    string `json:"suspicious,omitempty"`
 	ContainsBrand bool   `json:"contains_brand,omitempty"`
 	MatchType     string `json:"match_type,omitempty"`
+	IsPunycode    bool   `json:"is_punycode,omitempty"`
+	DecodedDomain string `json:"decoded_domain,omitempty"`
 }
 
 // homoglyphs mapeo de caracteres visualmente similares usados en ataques
@@ -35,6 +38,18 @@ func normalizeHomoglyphs(s string) string {
 }
 
 func CheckTyposquatting(hostname string) TypoResult {
+	// Detectar y decodificar dominios Punycode/IDN (xn--)
+	// ej: xn--mercadolbre-q1b.com → mercadolíbre.com
+	if strings.Contains(strings.ToLower(hostname), "xn--") {
+		decoded, err := idna.ToUnicode(hostname)
+		if err == nil && decoded != hostname {
+			result := CheckTyposquatting(decoded)
+			result.IsPunycode = true
+			result.DecodedDomain = decoded
+			return result
+		}
+	}
+
 	clean := stripTLD(strings.ToLower(hostname))
 	clean = strings.TrimPrefix(clean, "www.")
 

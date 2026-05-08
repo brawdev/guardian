@@ -81,6 +81,19 @@ curl -X POST http://localhost:8080/api/v1/analyze/url \
 |-------|------|-----------|
 | `url` | string | Sí |
 
+**Qué detecta:**
+
+| Señal | Descripción |
+|-------|-------------|
+| Typosquatting | Dominios que imitan marcas (`amaz0n`, `infomercadolibre`, `paypa1`) |
+| Punycode/IDN | Dominios con caracteres Unicode que se ven idénticos a marcas reales (`xn--mercadolbre-q1b.com`) |
+| URL cortos | Expande `bit.ly`, `tinyurl`, `t.co`, etc. antes de analizar el destino real |
+| Dominio nuevo | Creado hace menos de 90 días |
+| SSL inválido | Certificado autofirmado o vencido |
+| Redirecciones | Cadenas que cambian de dominio |
+| Google Safe Browsing | Base de datos de sitios maliciosos |
+| VirusTotal | Verificación contra +90 motores antivirus |
+
 ---
 
 #### `POST /api/v1/analyze/seller`
@@ -143,6 +156,33 @@ curl -X POST http://localhost:8080/api/v1/analyze/email \
 3. Se descarga el archivo `.eml` con headers completos
 
 > Ambas opciones incluyen headers técnicos completos (DKIM, SPF, Authentication-Results), activando todos los checks de autenticidad del remitente.
+
+---
+
+#### `POST /api/v1/analyze/phone`
+
+Analiza un número de teléfono en busca de señales de fraude.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/analyze/phone \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "+1800 555 1234", "country_context": "MX"}'
+```
+
+**Body:**
+
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `phone` | string | Sí | Número con o sin código de país |
+| `country_context` | string | No | País esperado: `MX`, `US`, `BR`, `AR`, `CO`, `CL`, `PE`, `ES` |
+
+**Qué detecta:**
+
+| Señal | Descripción |
+|-------|-------------|
+| Formato inválido | Número no reconocido o con menos de 7 dígitos |
+| Número VoIP | Twilio, Google Voice, toll-free — frecuentes en fraude telefónico |
+| País inconsistente | Número de EE.UU. en contexto de México, por ejemplo |
 
 ---
 
@@ -246,7 +286,11 @@ guardian analyze-email ~/Downloads/sospechoso.eml --json
 | Señal | Por qué importa |
 |-------|-----------------|
 | Dominio del remitente falso | `notificacion@infomercadolibre.com` no es MercadoLibre — se compara contra dominios oficiales conocidos |
+| Display name spoofing | `"Mercado Libre" <estafa@gmail.com>` — el nombre visible suplanta la marca pero el dominio es diferente |
+| SPF ausente o permisivo | El dominio no tiene política SPF o permite cualquier servidor enviar en su nombre |
+| DMARC ausente o en `none` | Sin política de rechazo activa — cualquiera puede falsificar el remitente |
 | DKIM no alineado | El correo fue firmado por un dominio diferente al remitente — señal técnica de suplantación |
+| Links ocultos | Texto visible `mercadolibre.com` que en realidad apunta a `phishing.com` |
 | Soporte vía WhatsApp | Ningún marketplace real usa `wa.me` para soporte oficial |
 | Solicitud de transferencia bancaria | Piden depositar a una cuenta externa en lugar de usar la plataforma |
 | Frases de urgencia o amenaza | "12 horas", "será bloqueado", "pago pausado", "desembolso de fondos" — patrones extraídos de correos reales |

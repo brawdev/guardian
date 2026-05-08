@@ -8,15 +8,17 @@ import (
 )
 
 type Result struct {
-	URL        string           `json:"url,omitempty"`
-	Hostname   string           `json:"hostname,omitempty"`
-	Typo       TypoResult       `json:"typo,omitempty"`
-	Whois      WhoisResult      `json:"whois,omitempty"`
-	Redirects  RedirectResult   `json:"redirects,omitempty"`
-	Reputation ReputationResult `json:"reputation,omitempty"`
-	RiskScore  int              `json:"risk_score,omitempty"`
-	RiskLevel  string           `json:"risk_level,omitempty"`
-	Flags      []string         `json:"flags,omitempty"`
+	URL          string           `json:"url,omitempty"`
+	OriginalURL  string           `json:"original_url,omitempty"`
+	IsShortURL   bool             `json:"is_short_url,omitempty"`
+	Hostname     string           `json:"hostname,omitempty"`
+	Typo         TypoResult       `json:"typo,omitempty"`
+	Whois        WhoisResult      `json:"whois,omitempty"`
+	Redirects    RedirectResult   `json:"redirects,omitempty"`
+	Reputation   ReputationResult `json:"reputation,omitempty"`
+	RiskScore    int              `json:"risk_score,omitempty"`
+	RiskLevel    string           `json:"risk_level,omitempty"`
+	Flags        []string         `json:"flags,omitempty"`
 }
 
 func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
@@ -24,14 +26,27 @@ func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
 		rawURL = "https://" + rawURL
 	}
 
-	parsed, err := url.Parse(rawURL)
+	// Expandir URL cortos antes de analizar
+	analyzedURL := rawURL
+	isShort := IsShortURL(rawURL)
+	if isShort {
+		if expanded, ok := ExpandShortURL(rawURL); ok {
+			analyzedURL = expanded
+		}
+	}
+
+	parsed, err := url.Parse(analyzedURL)
 	if err != nil {
 		return Result{}, err
 	}
 
 	result := Result{
-		URL:      rawURL,
+		URL:      analyzedURL,
 		Hostname: parsed.Hostname(),
+	}
+	if isShort {
+		result.OriginalURL = rawURL
+		result.IsShortURL = true
 	}
 
 	var wg sync.WaitGroup
@@ -53,6 +68,16 @@ func Analyze(rawURL, safeBrowsingKey, virusTotalKey string) (Result, error) {
 func calculateRisk(r Result) (int, []string) {
 	score := 0
 	var flags []string
+
+	if r.IsShortURL {
+		score += 10
+		flags = append(flags, "URL corto ("+r.OriginalURL+") — destino real oculto antes de expandir")
+	}
+
+	if r.Typo.IsPunycode {
+		score += 30
+		flags = append(flags, "dominio Punycode/IDN: '"+r.Hostname+"' se muestra como '"+r.Typo.DecodedDomain+"'")
+	}
 
 	if r.Typo.IsTyposquat {
 		score += 40
